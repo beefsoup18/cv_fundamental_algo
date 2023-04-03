@@ -4,6 +4,7 @@
 #include <string>
 
 #include "cnpy.h"
+#include "headdefs.h"
 
 
 using namespace std;
@@ -36,13 +37,19 @@ vector<vector<RGB>> get_2d_space_rgb(string input_path) {
 
 
 int main() {
+
+	/*get data*/
 	string raw_picture = "01358.npy";
 	vector<vector<RGB>> figure_array = get_2d_space_rgb(raw_picture);
 	cout << "the matrix has " << figure_array.size() << " raws" << endl;
 
-	/*you could realize your algorithm down here*/
+	/*realize algorithm down here*/
 	vector<vector<double>> adjacency_matrix = spectral_clustering(vec2mat(figure_array), 10, 1);
+	vector<int> rets = normalized_cut(adjacency_matrix, 3);
 
+	for (int i = 0; i < cluster_assignments.size(); ++i) {
+        cout << "Node " << i << " belongs to cluster " << cluster_assignments[i] << endl;
+    }
 
 	return 0;
 }

@@ -2,8 +2,8 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
-#include <Eigen/Dense>
 
+#include "headdefs.h"
 
 using namespace std;
 
