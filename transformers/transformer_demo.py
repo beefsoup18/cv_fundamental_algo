@@ -26,7 +26,7 @@ class TransformerBlock(nn.Module):
         return x
 
 
-class TransformerOld(nn.Module):
+class TransformerRaw(nn.Module):
     def __init__(self, vocab_size, max_len, d_model, num_heads, d_ff, num_layers, padding_idx):
         super().__init__()
 
@@ -81,22 +81,6 @@ class Transformer(nn.Module):
         
         out = self.fc(decoded)
         return out
-
-
-# class MyDataset(Dataset):
-#     def __init__(self, data):
-#         self.src = data['src']
-#         self.tgt = data['tgt']
-#         self.num_samples = len(self.src)
-        
-#     def __len__(self):
-#         return self.num_samples
-    
-#     def __getitem__(self, index):
-#         src_seq = torch.tensor(self.src[index], dtype=torch.long)
-#         tgt_seq = torch.tensor(self.tgt[index], dtype=torch.long)
-#         return src_seq, tgt_seq
-
 
 
 def test_old():

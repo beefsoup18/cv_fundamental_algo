@@ -1,9 +1,12 @@
+import traceback
 
 import torch
 import string
+import torch.nn as nn
+from torch.utils.data import DataLoader
 
 from transformer_demo import Transformer
-from pre_data import get_vocab, MyDataset
+from pre_data import get_vocab, MyDataset, split_chinese
 
 
 # 定义用于预处理文本的函数
@@ -75,52 +78,139 @@ def old_main():
             print([inverse_dic[x] for x in prediction.tolist()])
 
 
-def main():
-    # 定义超参数
-    input_size = 1000
-    output_size = 2000
-    hidden_size = 512
-    num_layers = 6
-    num_heads = 8
-    batch_size = 32
-    num_epochs = 10
-    learning_rate = 0.001
+def single_train(src, tgt):  # model, optimizer, criterion, 
+    optimizer.zero_grad()  # 清零梯度
+    src = src.to(device)
+    tgt = tgt.to(device)
+    try:
 
-    # 创建 Transformer 模型
-    model = Transformer(input_size, output_size, hidden_size, num_layers, num_heads)
+        output = model(src, tgt)  # 预测结果    #tgt[:-1]
+    except:
+        print("output = model(src, tgt)  FAILED !!!")
+        # print("output", output)
+        # print("output", output.reshape(-1, output_size))
+        print("src", src)
+        print("tgt", tgt)
+        traceback.print_exc()
+    # loss = criterion(output.reshape(-1, output_size), tgt.reshape(-1))  # 计算损失   #tgt[1:]
+    loss = criterion(output, tgt)
+    loss.backward()  # 反向传播
+    optimizer.step()  # 更新参数
 
-    # 定义优化器和损失函数
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.CrossEntropyLoss()
 
-    # 加载训练和测试数据
-    train_dataset = MyDataset(train_data)
-    test_dataset = MyDataset(test_data)
+def single_test(src, tgt, total_loss):  # model, 
+    src = src.to(device)
+    tgt = tgt.to(device)
+    output = model(src, tgt)  # tgt[:-1]
+    loss = criterion(output, tgt)
+    # print(output, output[0].size(), loss.item())
+    total_loss += loss.item()
+    return total_loss, torch.argmax(output, dim=-1)
+
+
+def batch_conduct(batch_size, train_text, test_text):
+
+    dataset = MyDatasetDouble(train_text, test_text, vocabulary)
+
+    # 参数 batch_size 指定了每个 batch 中包含的样本数量，如果世纪样本少于batch_size会怎样
+    train_dataset, test_dataset = dataset.src_tensor, dataset.tgt_tensor
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # 开始训练和测试
     for epoch in range(num_epochs):
+
         model.train()  # 训练模式
         for batch_idx, (src, tgt) in enumerate(train_loader):
-            optimizer.zero_grad()  # 清零梯度
-            
-            output = model(src, tgt[:-1])  # 预测结果
-            loss = criterion(output.reshape(-1, output_size), tgt[1:].reshape(-1))  # 计算损失
-            loss.backward()  # 反向传播
-            optimizer.step()  # 更新参数
-            
+            single_batch(model)
             if batch_idx % 10 == 0:
-                print(f"Epoch [{epoch+1}/{num_epochs}], Step [{batch_idx+1}/{len(train_loader)}], Loss: {loss.item():.4f}")
+                print(f"Epoch [{epoch+1}/{num_epochs}], \
+                        Step [{batch_idx+1}/{len(train_loader)}], Loss: {loss.item():.4f}")
         
         model.eval()  # 测试模式
         with torch.no_grad():
             total_loss = 0
             for batch_idx, (src, tgt) in enumerate(test_loader):
-                output = model(src, tgt[:-1])
-                loss = criterion(output.reshape(-1, output_size), tgt[1:].reshape(-1))
-                total_loss += loss.item()
-            
+                total_loss = single_test(model)
             avg_loss = total_loss / len(test_loader)
             print(f"Epoch [{epoch+1}/{num_epochs}], Test Loss: {avg_loss:.4f}")
+
+
+def single_conduct(train_text, test_text):  # model, optimizer, criterion, vocabulary, 
+
+    train_dataset = MyDataset(train_text[:-1], train_text[1:], vocabulary)
+    test_dataset = MyDataset(test_text[:-1], test_text[1:], vocabulary)
+    train_loader = train_dataset
+    test_loader = test_dataset
+
+    # 开始训练和测试
+    for epoch in range(num_epochs):
+
+        model.train()  # 训练模式
+        # train_loader = train_loader.to(device)
+        for idx, (src, tgt) in enumerate(train_loader):
+            # print("train:", src, tgt)
+            single_train(src, tgt)
         
+        model.eval()  # 测试模式
+        prediction = ""
+        with torch.no_grad():
+            total_loss = 0
+            # test_loader = test_loader.to(device)
+            for idx, (src, tgt) in enumerate(test_loader):
+                total_loss, output = single_test(src, tgt, total_loss, )
+                prediction += inverse_vocabulary[output.tolist()[0]]
+            avg_loss = total_loss / len(test_loader)
+            print(f"Epoch [{epoch+1}/{num_epochs}], Test Loss: {avg_loss:.4f}")
+            if epoch == num_epochs - 1:
+                print(test_dataset)
+                print(prediction)
+
+
+
+if __name__ == "__main__":
+
+    vocab_file = "three_body.txt"
+    train_file = "text.txt"
+    test_file = "text.txt"
+
+    with open(vocab_file, 'r', encoding='utf-8', errors='ignore') as file:  # 'gbk'
+        huge_text = file.read()
+        vocabulary = dict(get_vocab(huge_text).stoi)
+        inverse_vocabulary = {}
+        for key,val in vocabulary.items():
+            inverse_vocabulary[val] = key
+        # print(inverse_vocabulary)
+
+        with open(train_file, 'r', encoding='utf-8') as f:
+            train_text = [split_chinese(line.strip()) for line in f][0]
+        with open(test_file, 'r', encoding='utf-8') as f:
+            test_text = [split_chinese(line.strip()) for line in f][0]
+
+    # 定义超参数
+    # input_size = 1000
+    # output_size = 2000
+    hidden_size = 512
+    num_layers = 6
+    num_heads = 16
+    # batch_size = 32
+    num_epochs = 200
+    learning_rate = 0.002
+
+    print("len_vocab", len(vocabulary))
+    input_size = len(vocabulary)
+    output_size = len(vocabulary)
+
+    # 创建 Transformer 模型
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = Transformer(input_size, output_size, hidden_size, num_layers, num_heads)
+    model.to(device)
+
+    # 定义优化器和损失函数
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    # criterion = nn.CrossEntropyLoss()
+    criterion = torch.nn.functional.cross_entropy
+
+    # embedding = nn.Embedding(input_size, hidden_size)
+
+    single_conduct(train_text, test_text)

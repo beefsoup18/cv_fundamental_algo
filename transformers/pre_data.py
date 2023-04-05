@@ -19,7 +19,7 @@ def get_vocab(train_texts, train_labels=[0, 1]):
 def test_vocab():
     # 定义训练文本和标签
     train_texts = ['this is a sentence', 'this is another sentence']
-    vocabulary = dict(get_vocab(train_texts).stoi)
+    vocabulary, inverse_vocabulary = dict(get_vocab(train_texts).stoi)
     # 打印词汇表的大小
     print(len(vocab))
 
@@ -27,20 +27,18 @@ def split_chinese(text):
 	text = ' '.join(text)
 	return text.split(" ")
 
+
 class MyDataset(Dataset):
-    def __init__(self, train_file, test_file, vocab):
-        # 从文件中读取源和目标文本
-        with open(train_file, 'r', encoding='utf-8') as f:
-            self.src = [line.strip() for line in f]
-        with open(test_file, 'r', encoding='utf-8') as f:
-            self.tgt = [line.strip() for line in f]
-        
+
+    def __init__(self, src, tgt, vocab):
+        self.num_samples = len(src)
+
         # 将源和目标文本转换为 PyTorch 张量
         self.src_tensor = []
         self.tgt_tensor = []
-        for i in range(len(self.src)):
-            src_words = split_chinese(self.src[i])  # self.src[i].split()
-            tgt_words = split_chinese(self.tgt[i])  #self.tgt[i].split()
+        for i in range(self.num_samples):
+            src_words = split_chinese(src[i])  # self.src[i].split()
+            tgt_words = split_chinese(tgt[i])  #self.tgt[i].split()
             # print(split_chinese(self.src[i]))
             # print(src_words.split())
             
@@ -49,9 +47,6 @@ class MyDataset(Dataset):
             
             self.src_tensor.append(src_tensor)
             self.tgt_tensor.append(tgt_tensor)
-            print(len(src_tensor))
-        
-        self.num_samples = len(self.src)
         
     def __len__(self):
         return self.num_samples
@@ -61,11 +56,14 @@ class MyDataset(Dataset):
 
 
 
-with open('three_body.txt', 'r', encoding='utf-8', errors='ignore') as file:  # 'gbk'
-    huge_text = file.read()
-    vocabulary = dict(get_vocab(huge_text).stoi)
-
-
-
 if __name__ == "__main__":
-	obj = MyDataset("text.txt", "text.txt", vocabulary)
+    with open('three_body.txt', 'r', encoding='utf-8', errors='ignore') as file:  # 'gbk'
+        huge_text = file.read()
+        vocabulary, inverse_vocabulary = dict(get_vocab(huge_text).stoi)
+
+        with open("text.txt", 'r', encoding='utf-8') as f:
+            src = [line.strip() for line in f]
+        with open("text.txt", 'r', encoding='utf-8') as f:
+            tgt = [line.strip() for line in f]
+        print("MyDataset.src:", src)
+        dataset = MyDataset(src, tgt, vocabulary)
