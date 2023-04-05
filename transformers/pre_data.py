@@ -1,3 +1,5 @@
+import traceback
+
 import torch
 from torch.utils.data import Dataset
 
@@ -31,22 +33,29 @@ def split_chinese(text):
 class MyDataset(Dataset):
 
     def __init__(self, src, tgt, vocab):
-        self.num_samples = len(src)
-
+        
         # 将源和目标文本转换为 PyTorch 张量
-        self.src_tensor = []
-        self.tgt_tensor = []
-        for i in range(self.num_samples):
-            src_words = split_chinese(src[i])  # self.src[i].split()
-            tgt_words = split_chinese(tgt[i])  #self.tgt[i].split()
-            # print(split_chinese(self.src[i]))
-            # print(src_words.split())
-            
-            src_tensor = torch.tensor([vocab[word] for word in src_words], dtype=torch.long)
-            tgt_tensor = torch.tensor([vocab[word] for word in tgt_words], dtype=torch.long)
-            
-            self.src_tensor.append(src_tensor)
-            self.tgt_tensor.append(tgt_tensor)
+        self.num_samples = len(src)
+        
+        # # src是个二维数组，第一维是sequences，第二为维是words
+        # self.src_tensor = []
+        # self.tgt_tensor = []
+        # for i in range(self.num_samples):
+        #     src_words = src[i]  # split_chinese()   self.src[i].split()
+        #     tgt_words = tgt[i]  # split_chinese()   self.tgt[i].split()
+        #     src_tensor = torch.tensor([vocab[word] for word in src_words], dtype=torch.long)
+        #     tgt_tensor = torch.tensor([vocab[word] for word in tgt_words], dtype=torch.long)
+        #     self.src_tensor.append(src_tensor)
+        #     self.tgt_tensor.append(tgt_tensor)
+
+        # src是个一维数组，维度意义是words
+        try:
+            self.src_tensor = torch.tensor([vocab[word] if word in vocab.keys() else vocab[" "] for word in src], dtype=torch.long)
+        except:
+            traceback.print_exc()
+            print(src.count(""))
+
+        self.tgt_tensor = torch.tensor([vocab[word] if word in vocab.keys() else vocab[" "] for word in tgt], dtype=torch.long)
         
     def __len__(self):
         return self.num_samples

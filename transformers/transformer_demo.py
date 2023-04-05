@@ -82,6 +82,19 @@ class Transformer(nn.Module):
         out = self.fc(decoded)
         return out
 
+    def save(self, path):
+        torch.save(self.encoder, path + "/encoder.nn")
+        torch.save(self.decoder, path + "/decoder.nn")
+        torch.save(self.embedding, path + "/embedding.nn")
+        torch.save(self.fc, path + "/fc.nn")
+
+    def load(self, path):
+        self.encoder = torch.load(path + "/encoder.nn")
+        self.decoder = torch.load(path + "/decoder.nn")
+        self.embedding = torch.load(path + "/embedding.nn")
+        self.fc = torch.load(path + "/fc.nn")
+
+
 
 def test_old():
 

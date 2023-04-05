@@ -1,4 +1,6 @@
 import traceback
+import time
+import os
 
 import torch
 import string
@@ -96,6 +98,7 @@ def single_train(src, tgt):  # model, optimizer, criterion,
     loss = criterion(output, tgt)
     loss.backward()  # 反向传播
     optimizer.step()  # 更新参数
+    return loss
 
 
 def single_test(src, tgt, total_loss):  # model, 
@@ -103,37 +106,52 @@ def single_test(src, tgt, total_loss):  # model,
     tgt = tgt.to(device)
     output = model(src, tgt)  # tgt[:-1]
     loss = criterion(output, tgt)
-    # print(output, output[0].size(), loss.item())
     total_loss += loss.item()
     return total_loss, torch.argmax(output, dim=-1)
 
 
 def batch_conduct(batch_size, train_text, test_text):
+    print("len(train_text):", len(train_text))
+    train_dataset = MyDataset(train_text[:-1], train_text[1:], vocabulary)
+    test_dataset = MyDataset(test_text[:-1], test_text[1:], vocabulary)
 
-    dataset = MyDatasetDouble(train_text, test_text, vocabulary)
-
-    # 参数 batch_size 指定了每个 batch 中包含的样本数量，如果世纪样本少于batch_size会怎样
-    train_dataset, test_dataset = dataset.src_tensor, dataset.tgt_tensor
+    # 参数 batch_size 指定了每个 batch 中包含的样本数量
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # 开始训练和测试
     for epoch in range(num_epochs):
+        now = time.time()
 
-        model.train()  # 训练模式
+        # 训练模式
+        model.train()
         for batch_idx, (src, tgt) in enumerate(train_loader):
-            single_batch(model)
-            if batch_idx % 10 == 0:
-                print(f"Epoch [{epoch+1}/{num_epochs}], \
-                        Step [{batch_idx+1}/{len(train_loader)}], Loss: {loss.item():.4f}")
+            loss = single_train(src, tgt)
+            if batch_idx % 100 == 99:
+                print(f"Epoch [{epoch+1}/{num_epochs}], "\
+                        f"Step [{batch_idx+1}/{len(train_loader)}], Loss: {loss.item():.4f}", 
+                        f"takes time {time.time() - now}")
+                now = time.time()
         
-        model.eval()  # 测试模式
+        # 测试模式
+        prediction = ""
+        model.eval()
         with torch.no_grad():
             total_loss = 0
             for batch_idx, (src, tgt) in enumerate(test_loader):
-                total_loss = single_test(model)
+                total_loss, output = single_test(src, tgt, total_loss)
+                # print("tgt",len(tgt))
+                # print(tgt)
+                # print("output",len(output))
+                # print(output)
+                prediction += "".join([inverse_vocabulary[x] for x in output.tolist()])
             avg_loss = total_loss / len(test_loader)
-            print(f"Epoch [{epoch+1}/{num_epochs}], Test Loss: {avg_loss:.4f}")
+            print(f"Epoch [{epoch+1}/{num_epochs}], Test Loss: {avg_loss:.4f}", time.time())
+            if epoch == num_epochs - 1:
+                print(test_text)
+                print(prediction)
+            elif epoch % 10 == 0:
+                print(prediction)
 
 
 def single_conduct(train_text, test_text):  # model, optimizer, criterion, vocabulary, 
@@ -146,32 +164,38 @@ def single_conduct(train_text, test_text):  # model, optimizer, criterion, vocab
     # 开始训练和测试
     for epoch in range(num_epochs):
 
-        model.train()  # 训练模式
+        # 训练模式
+        model.train()
         # train_loader = train_loader.to(device)
         for idx, (src, tgt) in enumerate(train_loader):
-            # print("train:", src, tgt)
             single_train(src, tgt)
         
-        model.eval()  # 测试模式
+        # 测试模式
+        model.eval()
         prediction = ""
         with torch.no_grad():
             total_loss = 0
             # test_loader = test_loader.to(device)
             for idx, (src, tgt) in enumerate(test_loader):
-                total_loss, output = single_test(src, tgt, total_loss, )
+                total_loss, output = single_test(src, tgt, total_loss)
                 prediction += inverse_vocabulary[output.tolist()[0]]
             avg_loss = total_loss / len(test_loader)
             print(f"Epoch [{epoch+1}/{num_epochs}], Test Loss: {avg_loss:.4f}")
             if epoch == num_epochs - 1:
-                print(test_dataset)
+                print(test_text)
                 print(prediction)
 
 
 
 if __name__ == "__main__":
 
-    vocab_file = "three_body.txt"
-    train_file = "text.txt"
+    try:
+        os.mkdir("model")
+    except:
+        pass
+
+    vocab_file = "three_body3.txt"
+    train_file = "three_body3.txt"
     test_file = "text.txt"
 
     with open(vocab_file, 'r', encoding='utf-8', errors='ignore') as file:  # 'gbk'
@@ -183,19 +207,23 @@ if __name__ == "__main__":
         # print(inverse_vocabulary)
 
         with open(train_file, 'r', encoding='utf-8') as f:
-            train_text = [split_chinese(line.strip()) for line in f][0]
+            train_text = [split_chinese(line.strip()) for line in f]
+            train_text = [char for line in train_text for char in line]
+            train_text = list("".join(train_text).replace("\u3000", ""))
         with open(test_file, 'r', encoding='utf-8') as f:
-            test_text = [split_chinese(line.strip()) for line in f][0]
+            test_text = [split_chinese(line.strip()) for line in f]
+            test_text = [char for line in test_text for char in line]
+            test_text = list("".join(test_text).replace("\u3000", ""))
 
     # 定义超参数
     # input_size = 1000
     # output_size = 2000
     hidden_size = 512
-    num_layers = 6
+    num_layers = 5
     num_heads = 16
-    # batch_size = 32
+    batch_size = 320
     num_epochs = 200
-    learning_rate = 0.002
+    learning_rate = 0.001
 
     print("len_vocab", len(vocabulary))
     input_size = len(vocabulary)
@@ -211,6 +239,8 @@ if __name__ == "__main__":
     # criterion = nn.CrossEntropyLoss()
     criterion = torch.nn.functional.cross_entropy
 
-    # embedding = nn.Embedding(input_size, hidden_size)
+    # single_conduct(train_text[0], test_text[0])
 
-    single_conduct(train_text, test_text)
+    batch_conduct(batch_size, train_text, test_text)
+
+    model.save('model')
