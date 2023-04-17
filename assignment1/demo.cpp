@@ -10,8 +10,8 @@
 using namespace std;
 using RGB = array<char, 3>;
 
-#define Ly 1080
-#define Lx 1920
+#define Ly 577
+#define Lx 576
 
 
 vector<vector<RGB>> get_2d_space_rgb(string input_path) {
@@ -39,7 +39,7 @@ vector<vector<RGB>> get_2d_space_rgb(string input_path) {
 int main() {
 
 	/*get data*/
-	string raw_picture = "01358.npy";
+	string raw_picture = "input.npy";
 	vector<vector<RGB>> figure_array = get_2d_space_rgb(raw_picture);
 	cout << "the matrix has " << figure_array.size() << " raws" << endl;
 

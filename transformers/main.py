@@ -220,10 +220,10 @@ if __name__ == "__main__":
     # output_size = 2000
     hidden_size = 512
     num_layers = 5
-    num_heads = 16
-    batch_size = 320
+    num_heads = 8
+    batch_size = 160
     num_epochs = 200
-    learning_rate = 0.001
+    learning_rate = 0.1
 
     print("len_vocab", len(vocabulary))
     input_size = len(vocabulary)
