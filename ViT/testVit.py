@@ -21,8 +21,7 @@ class ViT(nn.Module):
         self.patch_size = patch_size
         self.project_patch = nn.Conv2d(3, emb_size, kernel_size=patch_size, stride=patch_size, bias=False)   # obj
         self.cls_token = nn.Parameter(torch.randn(1, 1, emb_size))
-        # self.pos_embeddings = nn.Parameter(torch.randn(num_patches + 1, 1, emb_size))  # [num_patches + 1, 1, embedding_size]
-        self.pos_embeddings = nn.Parameter(torch.randn(1, num_patches + 1, emb_size))  # [batch_size, num_patches + 1, 1, embedding_size]
+        self.pos_embeddings = nn.Parameter(torch.randn(1, num_patches + 1, emb_size))  # [fake_batch_size, num_patches + 1, 1, embedding_size]
         self.dropout = nn.Dropout(p=0.5)
         self.transformer_blocks = nn.Sequential(*[
             TransformerBlock(emb_size, num_heads, dropout_prob=0.5) for _ in range(num_layers)
@@ -34,22 +33,24 @@ class ViT(nn.Module):
         x = self.project_patch(x)   # [batch_size, embedding_size, H, W] = [64, 768, 14, 14]
         b, embeds, h, w = x.shape
         x = x.view(b, embeds, -1).transpose(1, 2)   # [batch_size, h*w, embedding_size] = [64, 196, 768]
-        pos_embeddings = self.pos_embeddings.detach().clone()
-        # self.pos_embeddings = self.pos_embeddings.repeat(x.size(0), 1, 1, 1)  
-        pos_embeddings = pos_embeddings.repeat(x.size(0), 1, 1, 1)
-        self.pos_embeddings = nn.Parameter(pos_embeddings, requires_grad=True)   # [64, 197, 1, 768]
+
+        pos_embeddings = self.pos_embeddings.repeat(x.size(0), 1, 1)  
 
         cls_tokens = self.cls_token.expand(b, -1, -1)   # [64, 1, 768]
         x = torch.cat([cls_tokens, x], dim=1)  # [64, 197, 768]
-        x = x + self.pos_embeddings
+        print("0 x.shape", x.shape)
+
+        x = x + pos_embeddings
         x = self.dropout(x)
+        print("1 x.shape", x.shape)
 
         # Add the extra dimension for layer norm
-        x = x.unsqueeze(1)
         x = self.transformer_blocks(x)
-        x = x.squeeze(1)
+        print("2 x.shape", x.shape)
         x = self.layer_norm(x[:, 0])
+        print("3 x.shape", x.shape)
         x = self.fc(x)
+        print("4 x.shape", x.shape)
         return x
 
 
