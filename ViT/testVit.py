@@ -8,8 +8,10 @@ from torch.utils.data import DataLoader
 # from einops.layers.torch import Rearrange
 from torchvision import transforms, datasets
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-num_epochs = 1000
+num_epochs = 10
+
 
 # 定义模型
 class ViT(nn.Module):
@@ -34,23 +36,16 @@ class ViT(nn.Module):
         b, embeds, h, w = x.shape
         x = x.view(b, embeds, -1).transpose(1, 2)   # [batch_size, h*w, embedding_size] = [64, 196, 768]
 
-        pos_embeddings = self.pos_embeddings.repeat(x.size(0), 1, 1)  
-
+        pos_embeddings = self.pos_embeddings.repeat(x.size(0), 1, 1)   # [batch_size, num_patches + 1, 1, embedding_size]
         cls_tokens = self.cls_token.expand(b, -1, -1)   # [64, 1, 768]
         x = torch.cat([cls_tokens, x], dim=1)  # [64, 197, 768]
-        print("0 x.shape", x.shape)
-
         x = x + pos_embeddings
         x = self.dropout(x)
-        print("1 x.shape", x.shape)
 
         # Add the extra dimension for layer norm
         x = self.transformer_blocks(x)
-        print("2 x.shape", x.shape)
-        x = self.layer_norm(x[:, 0])
-        print("3 x.shape", x.shape)
-        x = self.fc(x)
-        print("4 x.shape", x.shape)
+        x = self.layer_norm(x[:, 0])   # x[:, 0]: [batch_size, embedding_size] = [64, 768]
+        x = self.fc(x)   # [batch_size, num_classes]
         return x
 
 
@@ -81,37 +76,10 @@ class TransformerBlock(nn.Module):
         return x
 
 
-# # 训练模型
-# def train(model, optimizer, criterion, dataloader):
-#     model.train()
-#     for i, (images, labels) in enumerate(dataloader):
-#         images, labels = images.to(device), labels.to(device)
-#         optimizer.zero_grad()
-#         outputs = model(images)
-#         loss = criterion(outputs, labels)
-#         loss.backward()
-#         optimizer.step()
-
-
-# # 测试模型
-# def test(model, dataloader):
-#     model.eval()
-#     with torch.no_grad():
-#         total = 0
-#         correct = 0
-#         for images, labels in dataloader:
-#             images, labels = images.to(device), labels.to(device)
-#             outputs = model(images)
-#             _, predicted = torch.max(outputs.data, 1)
-#             total += labels.size(0)
-#             correct += (predicted ==
-
-
 def train(model, train_loader, optimizer, criterion, device):
     model.train()
     running_loss = 0.0
     for batch_idx, (images, labels) in enumerate(train_loader):
-        print(batch_idx, labels)
         images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
         outputs = model(images)
@@ -119,7 +87,7 @@ def train(model, train_loader, optimizer, criterion, device):
         loss.backward()
         optimizer.step()
         running_loss += loss.item() * images.size(0)
-        if batch_idx % 100 == 99:
+        if batch_idx % 10 == 9:
             print('Batch {} Loss: {:.4f}'.format(batch_idx+1, running_loss/((batch_idx+1)*train_loader.batch_size)))
     epoch_loss = running_loss / len(train_loader.dataset)
     return epoch_loss
@@ -144,13 +112,11 @@ def test(model, test_loader, criterion, device):
     return epoch_loss, epoch_acc
 
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = ViT(image_size=224, patch_size=16, emb_size=768, num_heads=12, num_layers=12, num_classes=10).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = nn.CrossEntropyLoss()
-# train_loader = ...
-# test_loader = ...
+
 
 # define data augmentation and preprocessing function
 train_transforms = transforms.Compose([
